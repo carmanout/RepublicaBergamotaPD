@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puntos de Destreza - Leaderboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Background Effects -->
+    <div class="bg-grid"></div>
+    <div class="bg-glow"></div>
+    
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <span class="logo-icon">◆</span>
+            <span class="logo-text">DESTREZA</span>
+        </div>
+        <div class="live-indicator">
+            <span class="live-dot"></span>
+            <span class="live-text">EN VIVO</span>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-label">RANKING DE JUGADORES</div>
+            <h1 class="hero-title">
+                <span class="decode-text" data-text="PUNTOS DE DESTREZA">PUNTOS DE DESTREZA</span>
+            </h1>
+            <p class="hero-subtitle">Tabla de clasificación actualizada en tiempo real desde Google Sheets</p>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <span class="stat-value" id="total-jugadores">--</span>
+                    <span class="stat-label">Jugadores</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-value" id="ultima-actualizacion">--:--</span>
+                    <span class="stat-label">Última actualización</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Controls -->
+        <div class="controls">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Buscar jugador...">
+                <span class="search-icon">🔍</span>
+            </div>
+            <div class="sort-controls">
+                <button class="sort-btn active" data-sort="default">Por Defecto</button>
+                <button class="sort-btn" data-sort="puntos-desc">Puntos ↓</button>
+                <button class="sort-btn" data-sort="puntos-asc">Puntos ↑</button>
+                <button class="sort-btn" data-sort="nombre">Nombre</button>
+            </div>
+            <button class="refresh-btn" id="refresh-btn">
+                <span class="refresh-icon">↻</span>
+                Actualizar
+            </button>
+        </div>
+
+        <!-- Loading State -->
+        <div class="loading-state" id="loading-state">
+            <div class="loading-spinner"></div>
+            <p>Cargando datos desde Google Sheets...</p>
+        </div>
+
+        <!-- Error State -->
+        <div class="error-state" id="error-state" style="display: none;">
+            <div class="error-icon">⚠</div>
+            <h3>Error al cargar los datos</h3>
+            <p id="error-message">No se pudieron cargar los datos. Intenta de nuevo.</p>
+            <button class="retry-btn" id="retry-btn">Reintentar</button>
+        </div>
+
+        <!-- Table Container -->
+        <div class="table-container" id="table-container" style="display: none;">
+            <div class="table-wrapper">
+                <table class="leaderboard-table" id="leaderboard-table">
+                    <thead>
+                        <tr id="table-header">
+                            <!-- Headers will be populated by JS -->
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Rows will be populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="empty-state" style="display: none;">
+            <div class="empty-icon">📊</div>
+            <h3>No hay datos disponibles</h3>
+            <p>La tabla está vacía o no se encontraron resultados.</p>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <span class="logo-icon">◆</span>
+                <span>DESTREZA</span>
+            </div>
+            <p class="footer-text">Datos sincronizados con Google Sheets en tiempo real</p>
+            <div class="footer-links">
+                <a href="#" class="footer-link">Documentación</a>
+                <a href="#" class="footer-link">Soporte</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 Puntos de Destreza. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
