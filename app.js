@@ -338,10 +338,14 @@ function renderRows(data) {
             // Valor procesado según reglas
             let displayValue = cell;
             if (isNameColumn) {
-                // Solo mostrar el nombre, sin avatar
+                // Mostrar el nombre como botón clickable
                 const nameText = document.createElement('span');
-                nameText.className = 'player-name-text';
+                nameText.className = 'player-name-text player-modal-trigger';
                 nameText.textContent = cell;
+                nameText.style.cursor = 'pointer';
+                nameText.addEventListener('click', () => {
+                    openPlayerModal(cell);
+                });
                 td.appendChild(nameText);
             } else if (isWinrateColumn) {
                 // Winrate: mostrar como porcentaje
@@ -393,6 +397,221 @@ function renderRows(data) {
         elements.tableBody.appendChild(tr);
     });
 }
+
+// ================= MODAL JUGADOR =====================
+
+// Crea el modal en el DOM si no existe
+function ensurePlayerModal() {
+    if (document.getElementById('player-modal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'player-modal';
+    modal.className = 'player-modal';
+    modal.innerHTML = `
+        <div class="player-modal-backdrop"></div>
+        <div class="player-modal-content">
+            <button class="player-modal-close">&times;</button>
+            <div class="player-modal-body" style="display:flex;gap:2rem;align-items:flex-start;">
+                <div style="flex:2;min-width:220px">
+                    <div class="player-modal-loading">Cargando datos del jugador...</div>
+                    <div class="player-modal-error" style="display:none;color:#ff5555"></div>
+                    <div class="player-modal-info" style="display:none"></div>
+                </div>
+                <div class="player-modal-chart" style="flex:1;min-width:220px;max-width:320px;display:flex;flex-direction:column;align-items:center;">
+                    <canvas id="playerPieChart" width="220" height="220" style="background:transparent;"></canvas>
+                    <div id="playerPieLegend" style="margin-top:1.2rem;width:100%;display:flex;flex-wrap:wrap;justify-content:center;gap:0.7rem;"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    // Cerrar modal al hacer click en backdrop o botón
+    modal.querySelector('.player-modal-backdrop').addEventListener('click', closePlayerModal);
+    modal.querySelector('.player-modal-close').addEventListener('click', closePlayerModal);
+}
+
+function openPlayerModal(playerName) {
+    ensurePlayerModal();
+    const modal = document.getElementById('player-modal');
+    modal.style.display = 'flex';
+    // Limpiar estados
+    modal.querySelector('.player-modal-loading').style.display = '';
+    modal.querySelector('.player-modal-error').style.display = 'none';
+    modal.querySelector('.player-modal-info').style.display = 'none';
+    // Cargar datos del jugador
+    fetchPlayerSheet(playerName)
+        .then(playerData => {
+            renderPlayerModalInfo(playerName, playerData);
+        })
+        .catch(err => {
+            modal.querySelector('.player-modal-loading').style.display = 'none';
+            modal.querySelector('.player-modal-error').style.display = '';
+            modal.querySelector('.player-modal-error').textContent = err.message || 'Error al cargar datos del jugador';
+        });
+}
+
+function closePlayerModal() {
+    const modal = document.getElementById('player-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+// Obtiene los datos de la hoja del jugador
+async function fetchPlayerSheet(playerName) {
+    // El nombre de la hoja es el nombre del jugador en mayúsculas y sin espacios
+    const sheetTab = playerName.trim().toUpperCase();
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetTab)}&range=B2:E`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('No se pudo acceder a la hoja del jugador.');
+    const text = await response.text();
+    const data = parseGoogleResponse(text);
+    // Extraer headers y filas
+    const headers = data.table.cols.map(col => col.label || '');
+    const rows = data.table.rows.map(row => row.c.map(cell => cell ? (cell.v || '') : ''));
+    return { headers, rows };
+}
+
+function renderPlayerModalInfo(playerName, playerData) {
+    const modal = document.getElementById('player-modal');
+    modal.querySelector('.player-modal-loading').style.display = 'none';
+    modal.querySelector('.player-modal-error').style.display = 'none';
+    const infoDiv = modal.querySelector('.player-modal-info');
+    infoDiv.style.display = '';
+    // Cabeceras fijas
+    const fixedHeaders = ['Kill Participation', 'KDA', 'Resultado', 'Rol'];
+    let html = `<h2 style="margin-bottom:1rem">${playerName}</h2>`;
+    html += '<table class="player-info-table"><thead><tr>';
+    fixedHeaders.forEach(h => {
+        html += `<th>${h}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    playerData.rows.forEach(row => {
+        html += '<tr>';
+        row.forEach((cell, idx) => {
+            let display = cell;
+            let tdStyle = '';
+            // Kill Participation en %
+            if (idx === 0) {
+                let num = parseFloat(cell);
+                if (cell === '' || cell === null || cell === undefined || cell === '0' || num === 0) {
+                    display = '0%';
+                } else if (!isNaN(num)) {
+                    if (num <= 1 && num >= 0) num = num * 100;
+                    display = num.toLocaleString('es-ES', { maximumFractionDigits: 2 }) + '%';
+                }
+            }
+            // KDA redondeado a centésimas y coloreado
+            else if (idx === 1) {
+                let num = parseFloat(cell);
+                if (cell === '' || cell === null || cell === undefined || cell === '0' || num === 0) {
+                    display = '0';
+                    tdStyle = 'background:rgba(255,0,0,0.18);color:#fff;';
+                } else if (!isNaN(num)) {
+                    display = num.toLocaleString('es-ES', { maximumFractionDigits: 2 });
+                    // Color dinámico según valor
+                    // Rojo <2, amarillo 2-3, verde >3
+                    let r = 255, g = 0, b = 0;
+                    if (num < 2) {
+                        g = Math.round(60 + 80 * (num/2)); // de 60 a 140
+                        b = 60;
+                    } else if (num >= 2 && num <= 3) {
+                        // Amarillo a verde
+                        r = Math.round(255 - 255 * ((num-2)/1)); // 255 a 0
+                        g = 200;
+                        b = 60;
+                    } else if (num > 3) {
+                        r = 0;
+                        g = 200 + Math.round(55 * Math.min((num-3)/2,1)); // 200 a 255
+                        b = 60;
+                    }
+                    tdStyle = `background:rgba(${r},${g},${b},0.18);color:#fff;`;
+                }
+            }
+            // Resultado traducido y coloreado
+            else if (idx === 2) {
+                let val = (cell || '').toString().toLowerCase();
+                if (val === 'loss' || val === 'derrota') {
+                    display = 'Derrota';
+                    tdStyle = 'color:#ff5555;font-weight:bold;';
+                } else if (val === 'win' || val === 'victoria') {
+                    display = 'Victoria';
+                    tdStyle = 'color:#00ffb2;font-weight:bold;';
+                } else if (!val || val === '0') {
+                    display = '0';
+                }
+            }
+            // Otros: si es 0 o vacío, mostrar 0
+            else if ((cell === '' || cell === null || cell === undefined || cell === '0') && idx !== 3) {
+                display = '0';
+            }
+            html += `<td style="${tdStyle}">${display}</td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    infoDiv.innerHTML = html;
+    // Pie chart de roles
+    setTimeout(() => renderPlayerPieChart(playerData.rows), 0);
+}
+
+// Dibuja el gráfico de queso de roles
+function renderPlayerPieChart(rows) {
+    const canvas = document.getElementById('playerPieChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Contar roles
+    const roleIdx = 3; // 4ª columna (Rol)
+    const roles = ['jungle', 'mid', 'top', 'supp', 'adc'];
+    const colors = ['#008d00', '#5800bd', '#ff3f04', '#0044ff', '#00b8c5'];
+    const counts = { jungle: 0, mid: 0, top: 0, supp: 0, adc: 0 };
+    rows.forEach(row => {
+        const role = (row[roleIdx] || '').toLowerCase();
+        if (counts.hasOwnProperty(role)) counts[role]++;
+    });
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    if (total === 0) return;
+    // Calcular ángulos
+    let startAngle = -Math.PI/2;
+    roles.forEach((role, i) => {
+        const value = counts[role];
+        if (value === 0) return;
+        const percent = value / total;
+        const endAngle = startAngle + percent * 2 * Math.PI;
+        ctx.beginPath();
+        ctx.moveTo(canvas.width/2, canvas.height/2);
+        ctx.arc(canvas.width/2, canvas.height/2, 90, startAngle, endAngle);
+        ctx.closePath();
+        ctx.fillStyle = colors[i];
+        ctx.fill();
+        // Etiqueta
+        const midAngle = (startAngle + endAngle) / 2;
+        const labelX = canvas.width/2 + Math.cos(midAngle) * 65;
+        const labelY = canvas.height/2 + Math.sin(midAngle) * 65;
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 13px Inter, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        if (percent > 0.08) ctx.fillText(`${Math.round(percent*100)}%`, labelX, labelY);
+        startAngle = endAngle;
+    });
+    // Leyenda debajo del gráfico
+    const legendDiv = document.getElementById('playerPieLegend');
+    if (legendDiv) {
+        legendDiv.innerHTML = '';
+        roles.forEach((role, i) => {
+            const value = counts[role];
+            if (value === 0) return;
+            const percent = ((value / total) * 100).toFixed(0);
+            const item = document.createElement('span');
+            item.style.display = 'flex';
+            item.style.alignItems = 'center';
+            item.style.gap = '0.4em';
+            item.innerHTML = `<span style="display:inline-block;width:16px;height:16px;background:${colors[i]};border-radius:3px;"></span><span style="color:#fff;font-size:13px;">${role.toUpperCase()} (${percent}%)</span>`;
+            legendDiv.appendChild(item);
+        });
+    }
+}
+
+
 
 /**
  * Ordena los datos según el criterio actual
