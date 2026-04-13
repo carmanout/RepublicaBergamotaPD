@@ -1,3 +1,168 @@
+// ================== MODAL CREAR PARTIDA Y EQUIPOS =====================
+
+function ensureModalPartida() {
+    // Ya está en el HTML, solo inicializar listeners
+    const modal = document.getElementById('modal-partida');
+    if (!modal) return;
+    // Cerrar modal
+    document.getElementById('modal-partida-close').onclick = closeModalPartida;
+    modal.querySelector('.modal-partida-backdrop').onclick = closeModalPartida;
+    // Submit form
+    document.getElementById('form-jugadores').onsubmit = function(e) {
+        e.preventDefault();
+        generarEquiposDesdeSeleccion();
+    };
+}
+
+function openModalPartida() {
+    ensureModalPartida();
+    const modal = document.getElementById('modal-partida');
+    if (!modal) return;
+    document.getElementById('equipos-resultados').style.display = 'none';
+    document.getElementById('equipos-resultados').innerHTML = '';
+    document.getElementById('modal-partida-error').style.display = 'none';
+    renderListaJugadoresSeleccion();
+    modal.style.display = 'flex';
+}
+
+function closeModalPartida() {
+    const modal = document.getElementById('modal-partida');
+    if (modal) modal.style.display = 'none';
+}
+
+function renderListaJugadoresSeleccion(filtro = '') {
+    const listaDiv = document.getElementById('jugadores-lista');
+    if (!listaDiv) return;
+    listaDiv.innerHTML = '';
+    // Guardar los seleccionados actuales
+    const seleccionados = Array.from(document.querySelectorAll('.jugador-checkbox:checked')).map(cb => cb.value);
+    // allData: cada fila [nombre, puntos, ...]
+    let jugadores = allData.map(row => ({
+        nombre: row[0],
+        puntos: parseFloat(row[1]) || 0
+    }));
+    if (filtro) {
+        const f = filtro.trim().toLowerCase();
+        jugadores = jugadores.filter(j => j.nombre.toLowerCase().includes(f));
+    }
+    jugadores.sort((a, b) => b.puntos - a.puntos);
+    jugadores.forEach((jug, idx) => {
+        const id = 'jugador-checkbox-' + idx;
+        const label = document.createElement('label');
+        label.className = 'jugador-checkbox-label';
+        label.htmlFor = id;
+        // Mostrar puntos con 2 decimales, sin espacio entre número y paréntesis
+        const puntosStr = jug.puntos.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        // checked si está en seleccionados
+        const checked = seleccionados.includes(jug.nombre) ? 'checked' : '';
+        label.innerHTML = `<input type="checkbox" class="jugador-checkbox" id="${id}" name="jugadores" value="${jug.nombre}" ${checked}><span style='white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;display:inline-block;'><span style='vertical-align:middle;'>${jug.nombre}</span><span style='color:#00d4ff;font-size:0.95em;vertical-align:middle;'>(\u00A0${puntosStr})</span></span>`;
+        label.style.width = '100%';
+        label.style.flex = '1 1 100%';
+        // Marcar visualmente si está seleccionado
+        if (checked) label.classList.add('selected');
+        label.onclick = function(e) {
+            // Toggle visual
+            if (e.target.tagName === 'INPUT') {
+                setTimeout(() => {
+                    label.classList.toggle('selected', e.target.checked);
+                }, 10);
+            }
+        };
+        listaDiv.appendChild(label);
+    });
+}
+
+function generarEquiposDesdeSeleccion() {
+    const checkboxes = document.querySelectorAll('.jugador-checkbox:checked');
+    const seleccionados = Array.from(checkboxes).map(cb => cb.value);
+    const errorDiv = document.getElementById('modal-partida-error');
+    if (seleccionados.length !== 10) {
+        errorDiv.style.display = '';
+        errorDiv.textContent = 'Debes seleccionar exactamente 10 jugadores para crear equipos.';
+        document.getElementById('equipos-resultados').style.display = 'none';
+        return;
+    }
+    errorDiv.style.display = 'none';
+    // Obtener datos de los seleccionados
+    const jugadoresSel = allData.filter(row => seleccionados.includes(row[0]))
+        .map(row => ({ nombre: row[0], puntos: parseFloat(row[1]) || 0 }));
+
+    // Algoritmo: aleatorio con diferencia máxima de 10, aumentando cada 5s
+    let maxDiff = 10;
+    let found = false;
+    let equipoA = [], equipoB = [], sumaA = 0, sumaB = 0;
+    let startTime = Date.now();
+    let intentos = 0;
+    const maxTime = 60000; // 1 minuto máximo para evitar bucles infinitos
+    const equiposResultadosDiv = document.getElementById('equipos-resultados');
+    equiposResultadosDiv.style.display = 'none';
+
+    function intentarGenerar() {
+        intentos++;
+        // Generar permutación aleatoria
+        const mezclados = jugadoresSel.slice().sort(() => Math.random() - 0.5);
+        const a = mezclados.slice(0, 5);
+        const b = mezclados.slice(5, 10);
+        const sumaA_ = a.reduce((acc, j) => acc + j.puntos, 0);
+        const sumaB_ = b.reduce((acc, j) => acc + j.puntos, 0);
+        const dif = Math.abs(sumaA_ - sumaB_);
+        if (dif <= maxDiff) {
+            equipoA = a;
+            equipoB = b;
+            sumaA = sumaA_;
+            sumaB = sumaB_;
+            found = true;
+            mostrarEquiposGenerados(equipoA, equipoB, sumaA, sumaB);
+            return;
+        }
+        // Si no se encuentra, seguir intentando
+        if (!found && (Date.now() - startTime < 5000)) {
+            setTimeout(intentarGenerar, 0); // Siguiente intento inmediato
+        } else if (!found && (Date.now() - startTime >= 5000)) {
+            // Aumentar el rango y reiniciar tiempo
+            maxDiff += 10;
+            startTime = Date.now();
+            // Mostrar mensaje de que se aumenta el rango
+            errorDiv.style.display = '';
+            errorDiv.textContent = `No se encontró combinación con diferencia ≤ ${maxDiff - 10}. Aumentando el rango a ${maxDiff} puntos...`;
+            setTimeout(intentarGenerar, 0);
+        } else if (!found && (Date.now() - startTime > maxTime)) {
+            errorDiv.style.display = '';
+            errorDiv.textContent = 'No se pudo encontrar una combinación adecuada.';
+        }
+    }
+    intentarGenerar();
+}
+
+function mostrarEquiposGenerados(equipoA, equipoB, sumaA, sumaB) {
+    const div = document.getElementById('equipos-resultados');
+    div.style.display = '';
+    const colorA = '#00d4ff', colorB = '#ff3f04';
+    let html = `<div style='display:flex;gap:2em;justify-content:center;flex-wrap:wrap;'>`;
+    html += `<div><h3 style='color:${colorA};margin-bottom:0.5em;'>Equipo A</h3><ul style='list-style:none;padding:0;'>`;
+    equipoA.forEach(j => {
+        html += `<li>${j.nombre} <span style='color:#aaa;font-size:0.95em;'>( ${j.puntos} )</span></li>`;
+    });
+    html += `</ul><div style='margin-top:0.7em;font-weight:bold;'>Total: <span style='color:${colorA};'>${sumaA.toLocaleString('es-ES', {maximumFractionDigits:2})}</span></div></div>`;
+    html += `<div><h3 style='color:${colorB};margin-bottom:0.5em;'>Equipo B</h3><ul style='list-style:none;padding:0;'>`;
+    equipoB.forEach(j => {
+        html += `<li>${j.nombre} <span style='color:#aaa;font-size:0.95em;'>( ${j.puntos} )</span></li>`;
+    });
+    html += `</ul><div style='margin-top:0.7em;font-weight:bold;'>Total: <span style='color:${colorB};'>${sumaB.toLocaleString('es-ES', {maximumFractionDigits:2})}</span></div></div>`;
+    html += `</div>`;
+    // Diferencia
+    const dif = Math.abs(sumaA - sumaB);
+    html += `<div style='margin-top:1.5em;font-size:1.1em;'>Diferencia de puntos: <span style='color:${dif < 10 ? '#00ffb2' : '#ff5555'};'>${dif.toLocaleString('es-ES', {maximumFractionDigits:2})}</span></div>`;
+    div.innerHTML = html;
+}
+// Inicializar botón y modal de crear partida al cargar datos
+function setupCrearPartidaBtn() {
+    const btn = document.getElementById('crear-partida-btn');
+    if (btn) {
+        btn.onclick = openModalPartida;
+    }
+    ensureModalPartida();
+}
 /**
  * Puntos de Destreza - Google Sheets Integration
  * Carga datos en tiempo real desde Google Sheets
@@ -154,6 +319,7 @@ async function loadData() {
             renderTable();
             showTable();
         }
+        setupCrearPartidaBtn();
         
         updateStats();
         updateLastRefreshTime();

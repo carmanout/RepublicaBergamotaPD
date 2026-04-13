@@ -20,9 +20,22 @@
             <span class="logo-icon">◆</span>
             <span class="logo-text">DESTREZA</span>
         </div>
-        <div class="live-indicator">
-            <span class="live-dot"></span>
-            <span class="live-text">EN VIVO</span>
+        <button class="crear-partida-btn" id="crear-partida-btn">Crear partida</button>
+        <!-- Modal Crear Partida -->
+        <div class="modal-partida" id="modal-partida" style="display:none;">
+            <div class="modal-partida-backdrop"></div>
+            <div class="modal-partida-content">
+                <button class="modal-partida-close" id="modal-partida-close">&times;</button>
+                <h2>Selecciona 10 jugadores</h2>
+                <form id="form-jugadores">
+                    <div class="jugadores-lista" id="jugadores-lista">
+                        <!-- Lista de jugadores con checkboxes -->
+                    </div>
+                    <div class="modal-partida-error" id="modal-partida-error" style="display:none;color:#ff5555;margin:1em 0;"></div>
+                    <button type="submit" class="btn-confirmar-equipos">Generar equipos</button>
+                </form>
+                <div class="equipos-resultados" id="equipos-resultados" style="display:none;margin-top:2em;"></div>
+            </div>
         </div>
     </header>
 
