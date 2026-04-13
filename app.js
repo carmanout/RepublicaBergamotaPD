@@ -141,12 +141,12 @@ function mostrarEquiposGenerados(equipoA, equipoB, sumaA, sumaB) {
     let html = `<div style='display:flex;gap:2em;justify-content:center;flex-wrap:wrap;'>`;
     html += `<div><h3 style='color:${colorA};margin-bottom:0.5em;'>Equipo A</h3><ul style='list-style:none;padding:0;'>`;
     equipoA.forEach(j => {
-        html += `<li>${j.nombre} <span style='color:#aaa;font-size:0.95em;'>( ${j.puntos} )</span></li>`;
+        html += `<li>${j.nombre} <span style='color:#aaa;font-size:0.95em;'>( ${j.puntos.toFixed(2)} )</span></li>`;
     });
     html += `</ul><div style='margin-top:0.7em;font-weight:bold;'>Total: <span style='color:${colorA};'>${sumaA.toLocaleString('es-ES', {maximumFractionDigits:2})}</span></div></div>`;
     html += `<div><h3 style='color:${colorB};margin-bottom:0.5em;'>Equipo B</h3><ul style='list-style:none;padding:0;'>`;
     equipoB.forEach(j => {
-        html += `<li>${j.nombre} <span style='color:#aaa;font-size:0.95em;'>( ${j.puntos} )</span></li>`;
+        html += `<li>${j.nombre} <span style='color:#aaa;font-size:0.95em;'>( ${j.puntos.toFixed(2)} )</span></li>`;
     });
     html += `</ul><div style='margin-top:0.7em;font-weight:bold;'>Total: <span style='color:${colorB};'>${sumaB.toLocaleString('es-ES', {maximumFractionDigits:2})}</span></div></div>`;
     html += `</div>`;
