@@ -190,7 +190,7 @@ const REFRESH_INTERVAL = 3000000;
 
 let allData = [];
 let headers = [];
-let currentSort = 'default';
+let currentSort = 'puntos-desc'; // Por defecto: puntos descendente
 let searchTerm = '';
 let refreshTimer = null;
 
@@ -784,17 +784,15 @@ function renderPlayerPieChart(rows) {
  */
 function sortData(data) {
     const sorted = [...data];
-    
     switch (currentSort) {
         case 'puntos-desc':
-            // Asumimos que la segunda columna es puntos (índice 1)
+            // Ordenar por puntos descendente (índice 1)
             sorted.sort((a, b) => {
                 const aVal = parseFloat(a[1]) || 0;
                 const bVal = parseFloat(b[1]) || 0;
                 return bVal - aVal;
             });
             break;
-            
         case 'puntos-asc':
             sorted.sort((a, b) => {
                 const aVal = parseFloat(a[1]) || 0;
@@ -802,7 +800,19 @@ function sortData(data) {
                 return aVal - bVal;
             });
             break;
-            
+        case 'winrate-desc':
+            // Ordenar por winrate descendente (índice 5)
+            sorted.sort((a, b) => {
+                let aVal = parseFloat(a[5]);
+                let bVal = parseFloat(b[5]);
+                // Si winrate está en 0-1, multiplicar por 100
+                if (!isNaN(aVal) && aVal <= 1 && aVal >= 0) aVal = aVal * 100;
+                if (!isNaN(bVal) && bVal <= 1 && bVal >= 0) bVal = bVal * 100;
+                aVal = isNaN(aVal) ? 0 : aVal;
+                bVal = isNaN(bVal) ? 0 : bVal;
+                return bVal - aVal;
+            });
+            break;
         case 'nombre':
             sorted.sort((a, b) => {
                 const aName = (a[0] || '').toString().toLowerCase();
@@ -810,13 +820,10 @@ function sortData(data) {
                 return aName.localeCompare(bName);
             });
             break;
-            
-        case 'default':
         default:
             // Mantener orden original
             break;
     }
-    
     return sorted;
 }
 
@@ -907,7 +914,6 @@ function setupEventListeners() {
             // Actualizar estado activo
             elements.sortButtons.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            
             // Aplicar ordenamiento
             currentSort = btn.dataset.sort;
             renderTable();
