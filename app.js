@@ -432,6 +432,8 @@ function renderTable() {
     // Renderizar headers
     renderHeaders();
     
+    // Limpiar cache de KDA antes de renderizar filas
+    window.kdaCache = {};
     // Renderizar filas
     renderRows(filteredData);
 }
@@ -446,13 +448,23 @@ function renderHeaders() {
     const rankTh = document.createElement('th');
     rankTh.textContent = '#';
     elements.tableHeader.appendChild(rankTh);
-    
+
     // Headers del sheet
     headers.forEach(header => {
         const th = document.createElement('th');
         th.textContent = header;
         elements.tableHeader.appendChild(th);
     });
+
+    // Nueva columna: Main Rol
+    const mainRolTh = document.createElement('th');
+    mainRolTh.textContent = 'Main Rol';
+    elements.tableHeader.appendChild(mainRolTh);
+
+    // Nueva columna: Media KDA
+    const kdaTh = document.createElement('th');
+    kdaTh.textContent = 'Media KDA';
+    elements.tableHeader.appendChild(kdaTh);
 }
 
 /**
@@ -468,6 +480,8 @@ function renderRows(data) {
         elements.emptyState.style.display = 'none';
     }
     
+    // Cache para medias de KDA (para ordenamiento)
+    if (!window.kdaCache) window.kdaCache = {};
     data.forEach((row, index) => {
         const tr = document.createElement('tr');
 
@@ -560,8 +574,107 @@ function renderRows(data) {
             tr.appendChild(td);
         });
 
+        // Nueva columna: Main Rol
+        const mainRolTd = document.createElement('td');
+        mainRolTd.textContent = '...'; // Placeholder mientras carga
+        tr.appendChild(mainRolTd);
+
+        // Nueva columna: Media KDA
+        const kdaTd = document.createElement('td');
+        kdaTd.textContent = '...'; // Placeholder mientras carga
+        tr.appendChild(kdaTd);
+
+        // Obtener el main rol y la media de KDA del jugador (asíncrono)
+        const playerName = row[0];
+        if (playerName) {
+            fetchMainRol(playerName).then(mainRol => {
+                mainRolTd.textContent = mainRol || '-';
+            }).catch(() => {
+                mainRolTd.textContent = '-';
+            });
+            fetchKdaAvg(playerName).then(kdaAvg => {
+                kdaTd.textContent = kdaAvg !== null ? kdaAvg : '-';
+                // Guardar en cache para ordenamiento
+                if (!window.kdaCache) window.kdaCache = {};
+                window.kdaCache[playerName] = kdaAvg !== null && !isNaN(parseFloat(kdaAvg.replace(',','.'))) ? kdaAvg.replace(',','.') : null;
+            }).catch(() => {
+                kdaTd.textContent = '-';
+                if (!window.kdaCache) window.kdaCache = {};
+                window.kdaCache[playerName] = null;
+            });
+        } else {
+            mainRolTd.textContent = '-';
+            kdaTd.textContent = '-';
+        }
+
         elements.tableBody.appendChild(tr);
     });
+}
+
+// Obtiene la media de KDA de un jugador desde su hoja personal
+async function fetchKdaAvg(playerName) {
+    try {
+        const sheetTab = playerName.trim().toUpperCase();
+        const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetTab)}&range=B2:E`;
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        const text = await response.text();
+        const data = parseGoogleResponse(text);
+        // La columna 1 (índice 1) es el KDA
+        const rows = data.table.rows.map(row => row.c.map(cell => cell ? (cell.v || '') : ''));
+        const kdaIdx = 1;
+        let sum = 0, count = 0;
+        rows.forEach(row => {
+            const kda = parseFloat(row[kdaIdx]);
+            if (!isNaN(kda)) {
+                sum += kda;
+                count++;
+            }
+        });
+        if (count === 0) return null;
+        // Redondear a 2 decimales
+        return (sum / count).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } catch (e) {
+        return null;
+    }
+}
+
+// Obtiene el rol más jugado de un jugador desde su hoja personal
+async function fetchMainRol(playerName) {
+    try {
+        // El nombre de la hoja es el nombre del jugador en mayúsculas y sin espacios
+        const sheetTab = playerName.trim().toUpperCase();
+        const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetTab)}&range=B2:E`;
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        const text = await response.text();
+        const data = parseGoogleResponse(text);
+        // La columna 3 (índice 3) es el rol
+        const rows = data.table.rows.map(row => row.c.map(cell => cell ? (cell.v || '') : ''));
+        const roleIdx = 3;
+        const roleCounts = {};
+        rows.forEach(row => {
+            const role = (row[roleIdx] || '').toLowerCase();
+            if (!role) return;
+            roleCounts[role] = (roleCounts[role] || 0) + 1;
+        });
+        // Encontrar el rol con más partidas
+        let mainRol = null;
+        let maxCount = 0;
+        for (const [rol, count] of Object.entries(roleCounts)) {
+            if (count > maxCount) {
+                mainRol = rol;
+                maxCount = count;
+            }
+        }
+        // Capitalizar el rol
+        if (mainRol) {
+            return mainRol.charAt(0).toUpperCase() + mainRol.slice(1);
+        }
+        return null;
+    } catch (e) {
+        return null;
+    }
 }
 
 // ================= MODAL JUGADOR =====================
@@ -643,7 +756,40 @@ function renderPlayerModalInfo(playerName, playerData) {
     infoDiv.style.display = '';
     // Cabeceras fijas
     const fixedHeaders = ['Kill Participation', 'KDA', 'Resultado', 'Rol'];
-    let html = `<h2 style="margin-bottom:1rem">${playerName}</h2>`;
+    // Calcular medias globales
+    let sumKP = 0, sumKDA = 0, sumWin = 0, count = 0;
+    const roleStats = {};
+    playerData.rows.forEach(row => {
+        // row: [KP, KDA, Resultado, Rol]
+        let kp = parseFloat(row[0]);
+        let kda = parseFloat(row[1]);
+        let win = 0;
+        let rol = (row[3] || '').toLowerCase();
+        if (row[2] && (row[2].toLowerCase() === 'win' || row[2].toLowerCase() === 'victoria')) win = 1;
+        if (!isNaN(kp)) {
+            if (kp <= 1 && kp >= 0) kp = kp * 100;
+            sumKP += kp;
+        }
+        if (!isNaN(kda)) sumKDA += kda;
+        sumWin += win;
+        count++;
+        // Por rol
+        if (!roleStats[rol]) roleStats[rol] = { kp: 0, kda: 0, win: 0, n: 0 };
+        if (!isNaN(kp)) roleStats[rol].kp += kp;
+        if (!isNaN(kda)) roleStats[rol].kda += kda;
+        roleStats[rol].win += win;
+        roleStats[rol].n++;
+    });
+    const avgKP = count ? (sumKP/count).toLocaleString('es-ES', {maximumFractionDigits:2}) : '0';
+    const avgKDA = count ? (sumKDA/count).toLocaleString('es-ES', {maximumFractionDigits:2}) : '0';
+    const avgWin = count ? ((sumWin/count)*100).toLocaleString('es-ES', {maximumFractionDigits:2}) : '0';
+
+    // Mostrar nombre y medias globales
+    let html = `<h2 style="margin-bottom:0.5rem">${playerName}</h2>`;
+    html += `<div style="margin-bottom:1.2rem;font-size:1.08em;color:#00d4ff;font-weight:500;">
+        Media Kill Participation: <b>${avgKP}%</b> &nbsp;|&nbsp; Media KDA: <b>${avgKDA}</b> &nbsp;|&nbsp; Winrate: <b>${avgWin}%</b>
+    </div>`;
+
     html += '<table class="player-info-table"><thead><tr>';
     fixedHeaders.forEach(h => {
         html += `<th>${h}</th>`;
@@ -713,9 +859,48 @@ function renderPlayerModalInfo(playerName, playerData) {
         html += '</tr>';
     });
     html += '</tbody></table>';
-    infoDiv.innerHTML = html;
+
     // Pie chart de roles
     setTimeout(() => renderPlayerPieChart(playerData.rows), 0);
+
+    // Tabla de medias por rol: la insertamos en el contenedor de la gráfica
+    const roles = Object.keys(roleStats).filter(r => r && roleStats[r].n > 0);
+    let roleTableHtml = '';
+    if (roles.length > 0) {
+        roleTableHtml += `<div style="margin:1.2em 0 0.2em 0;font-size:1.08em;color:#00d4ff;font-weight:500;text-align:center;">Medias por Rol</div>`;
+        roleTableHtml += `<table class="player-role-avg-table" style="margin:0 auto 1.5em auto;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px #0002;background:#181c24;width:98%;max-width:320px;font-size:1em;">
+        <thead><tr style="background:#23283a;color:#00d4ff;">
+            <th style="padding:0.5em 0.7em;">Rol</th>
+            <th style="padding:0.5em 0.7em;">Kill Participation</th>
+            <th style="padding:0.5em 0.7em;">KDA</th>
+            <th style="padding:0.5em 0.7em;">Winrate</th>
+        </tr></thead><tbody>`;
+        roles.forEach(rol => {
+            const r = roleStats[rol];
+            const avgKP = r.n ? (r.kp/r.n).toLocaleString('es-ES', {maximumFractionDigits:2}) : '0';
+            const avgKDA = r.n ? (r.kda/r.n).toLocaleString('es-ES', {maximumFractionDigits:2}) : '0';
+            const avgWin = r.n ? ((r.win/r.n)*100).toLocaleString('es-ES', {maximumFractionDigits:2}) : '0';
+            roleTableHtml += `<tr style="background:#23283a;border-bottom:1px solid #222;">
+                <td style="text-transform:capitalize;padding:0.4em 0.7em;">${rol}</td>
+                <td style="padding:0.4em 0.7em;">${avgKP}%</td>
+                <td style="padding:0.4em 0.7em;">${avgKDA}</td>
+                <td style="padding:0.4em 0.7em;">${avgWin}%</td>
+            </tr>`;
+        });
+        roleTableHtml += `</tbody></table>`;
+    }
+    infoDiv.innerHTML = html;
+    // Insertar la tabla de medias por rol en el contenedor de la gráfica
+    const chartDiv = document.querySelector('.player-modal-chart');
+    if (chartDiv) {
+        let tableDiv = chartDiv.querySelector('.player-role-avg-table-container');
+        if (!tableDiv) {
+            tableDiv = document.createElement('div');
+            tableDiv.className = 'player-role-avg-table-container';
+            chartDiv.appendChild(tableDiv);
+        }
+        tableDiv.innerHTML = roleTableHtml;
+    }
 }
 
 // Dibuja el gráfico de queso de roles
@@ -785,6 +970,22 @@ function renderPlayerPieChart(rows) {
 function sortData(data) {
     const sorted = [...data];
     switch (currentSort) {
+        case 'kda-desc':
+        case 'kda-asc': {
+            // Ordenar por media de KDA (requiere cachear los valores)
+            // Usar window.kdaCache, que se llena en renderRows
+            sorted.sort((a, b) => {
+                const aName = a[0];
+                const bName = b[0];
+                let aKda = window.kdaCache && window.kdaCache[aName] !== undefined ? parseFloat(window.kdaCache[aName]) : null;
+                let bKda = window.kdaCache && window.kdaCache[bName] !== undefined ? parseFloat(window.kdaCache[bName]) : null;
+                if (aKda === null || isNaN(aKda)) aKda = -9999;
+                if (bKda === null || isNaN(bKda)) bKda = -9999;
+                if (currentSort === 'kda-desc') return bKda - aKda;
+                else return aKda - bKda;
+            });
+            break;
+        }
         case 'puntos-desc':
             // Ordenar por puntos descendente (índice 1)
             sorted.sort((a, b) => {
