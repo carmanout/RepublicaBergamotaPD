@@ -88,86 +88,48 @@ const SHEET_NAME = 'NOMBRE_DE_TU_HOJA';
 ```javascript
 // Línea 14-15
 const HEADER_RANGE = 'B2:G2';  // Rango de los headers
-const DATA_RANGE = 'B3:G';      // Rango de los datos (sin límite)
-```
 
-### Cambiar el intervalo de actualización
+# Puntos de Destreza - Leaderboard
 
-```javascript
-// Línea 21 (en milisegundos)
-const REFRESH_INTERVAL = 30000; // 30 segundos
-```
+**Puntos de Destreza** es una aplicación web interactiva que muestra un ranking de jugadores basado en datos en tiempo real provenientes de una hoja de cálculo de Google Sheets. El objetivo principal es ofrecer una visualización clara, atractiva y dinámica de la clasificación de jugadores, facilitando la gestión y el seguimiento de estadísticas en comunidades, torneos o grupos de juego.
 
-## Despliegue en GitHub Pages
+## Descripción general
 
-### Paso 1: Crear un repositorio
+El proyecto consiste en una página web de estilo cyberpunk/neón, inspirada en el template Playza, que presenta una tabla de clasificación (leaderboard) con información relevante de cada jugador: nombre, puntos de destreza, partidas jugadas, victorias, derrotas, winrate y estadísticas adicionales. La información se sincroniza automáticamente con una hoja de Google Sheets, permitiendo que los datos estén siempre actualizados sin intervención manual.
 
-1. Ve a [GitHub](https://github.com) e inicia sesión
-2. Crea un nuevo repositorio llamado `puntos-destreza` (o el nombre que prefieras)
-3. **No** inicialices con README (ya lo tenemos)
+## Arquitectura y funcionamiento
 
-### Paso 2: Subir los archivos
+- **Frontend:**
+   - Desarrollado en HTML, CSS y JavaScript puro, sin frameworks ni dependencias externas.
+   - El diseño es responsive y está optimizado tanto para escritorio como para dispositivos móviles.
+   - Incluye efectos visuales modernos y una experiencia de usuario fluida.
 
-#### Opción A: Por web
+- **Sincronización de datos:**
+   - Utiliza la API pública de Google Sheets para obtener los datos de la clasificación.
+   - La tabla se actualiza automáticamente cada cierto intervalo de tiempo, mostrando siempre la información más reciente.
+   - Permite búsqueda, filtrado y ordenamiento de jugadores por diferentes criterios (puntos, winrate, KDA, nombre, etc.).
 
-1. En tu repositorio, haz clic en **"Add file"** → **"Upload files"**
-2. Sube los 3 archivos: `index.html`, `styles.css`, `app.js`
-3. Haz clic en **"Commit changes"**
+- **Funcionalidades adicionales:**
+   - Modal para crear partidas y generar equipos equilibrados de forma automática, seleccionando jugadores desde la lista.
+   - Visualización de estadísticas individuales y totales.
+   - Interfaz intuitiva para explorar y comparar el rendimiento de los jugadores.
 
-#### Opción B: Por línea de comandos
+## Motivación y casos de uso
 
-```bash
-# En la carpeta del proyecto
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin https://github.com/TU_USUARIO/puntos-destreza.git
-git push -u origin main
-```
+Esta aplicación está pensada para comunidades de videojuegos, clubes deportivos, ligas amateur o cualquier grupo que requiera llevar un control transparente y visualmente atractivo de las estadísticas de sus miembros. Al centralizar los datos en Google Sheets, se facilita la edición y mantenimiento por parte de los organizadores, mientras que los participantes pueden consultar el ranking en tiempo real desde cualquier dispositivo.
 
-### Paso 3: Activar GitHub Pages
+## Tecnologías principales
 
-1. En tu repositorio, ve a **Settings** → **Pages**
-2. En **Source**, selecciona **"Deploy from a branch"**
-3. Selecciona la rama **"main"** y la carpeta **"/ (root)"**
-4. Haz clic en **"Save"**
+- **HTML5** para la estructura semántica de la web.
+- **CSS3** con variables, flexbox y grid para el diseño visual y responsivo.
+- **JavaScript ES6+** para la lógica de la aplicación y la integración con Google Sheets.
+- **Google Sheets API** como fuente de datos dinámica.
+- **Fuentes**: Inter y JetBrains Mono desde Google Fonts.
 
-5. Espera 1-2 minutos y tu web estará disponible en:
-   `https://TU_USUARIO.github.io/puntos-destreza`
+## Licencia y créditos
 
-## Solución de problemas
-
-### "Error al cargar los datos"
-
-1. Verifica que la hoja esté publicada (ver "Configuración de Google Sheets")
-2. Comprueba que el ID del spreadsheet sea correcto
-3. Asegúrate de que el nombre de la hoja sea exacto (distingue mayúsculas/minúsculas)
-
-### Los datos no se actualizan
-
-- Google Sheets puede tardar hasta 5 minutos en propagar los cambios cuando se publica como CSV
-- La web se actualiza automáticamente cada 30 segundos
-- Puedes forzar una actualización haciendo clic en el botón "Actualizar"
-
-### La tabla aparece vacía
-
-- Verifica que los datos estén en el rango correcto (B2:G)
-- Asegúrate de que la primera fila (B2:G2) contenga los headers
-- Los datos deben empezar desde la fila 3 (B3)
-
-## Tecnologías utilizadas
-
-- **HTML5** - Estructura semántica
-- **CSS3** - Estilos con variables CSS, flexbox, grid
-- **JavaScript ES6+** - Lógica de la aplicación, fetch API
-- **Google Sheets API** - Fuente de datos
-- **Fuentes**: Inter, JetBrains Mono (Google Fonts)
-
-## Licencia
-
-Este proyecto está basado en el template [Playza](https://github.com/mikelothar/template-playza) y mantiene su estilo visual cyberpunk.
+El proyecto toma como base el template [Playza](https://github.com/mikelothar/template-playza) y respeta su estilo visual cyberpunk. El código es abierto y puede ser adaptado para otros fines similares.
 
 ---
+Para más información técnica o colaboración, revisa el código fuente o contacta al autor mediante el repositorio.
 
-¿Necesitas ayuda? Abre un issue en el repositorio o contacta al desarrollador.
